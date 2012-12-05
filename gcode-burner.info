@@ -1,0 +1,14 @@
+Gcode-burner
+
+Use Z function to define color intensity. 
+
+Default value: "zmin*(1-v)+zmax*v if v<0.9 else None".
+Z function will be processed with python eval function. If result not None a point will be added.
+zmin and zmax are defined in the form, v  equals color intensity (0 - black, 1 - white).
+
+Cleaning head could be either "row" or some positive value. If it eqals 1000 then cleaning will be done each time sum(v)>1000, where v is color intensity from 0 to 1. 
+
+Find more info at cnc-club.com
+
+Для русскоговорящих пользователей см. http://cnc-club.ru/forum/viewtopic.php?f=15&t=169#p1572
+
