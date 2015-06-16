@@ -189,8 +189,7 @@ class Burner:
 		self.config.set('Global', 'clean-each', self.clean_each.get_text())
 		self.config.set('Global', 'z_func', self.z_func.get_text())
 		
-			
-		f = open('gcode-burner.ini',"w")
+		f = open(self.ini_file,"w")
 		self.config.write(f)			
 		f.close()
 		self.destroy(None,None)		
@@ -223,14 +222,20 @@ class Burner:
 		else:
 			self.output_file.hide()
 	
-
+	def save_to_click(self, widget):
+		self.output_file_dialog.set_filename(self.output_file.get_text())
+		result = self.output_file_dialog.run()
+		if result == gtk.RESPONSE_OK:
+			self.output_file.set_text(self.output_file_dialog.get_filename())           
+		self.output_file_dialog.hide()
+		
 	def __init__(self):
 		self.change_spinners_lock = False
-
+		self.ini_file = os.path.join( os.path.dirname(os.path.realpath(__file__)), "gcode-burner.ini" )
 		
 		import ConfigParser
 		self.config = ConfigParser.RawConfigParser()
-		self.config.read('gcode-burner.ini')
+		self.config.read(self.ini_file)
 		spinners = dict(self.config.items('Spinners'))
 		field_names = dict(self.config.items('Field_names'))
 		spinners_order =  self.config.get('Global','spinners_order').split()
@@ -268,7 +273,7 @@ class Burner:
 		else : 
 			table.attach(self.image, 3, 4, 1, 2+len(spinners_order) + len(checkbuttons_order)+1)
 		i += 1	
-		
+
 		self.input_file = gtk.FileChooserButton('Open image', backend=None)
 		table.attach(self.input_file, 0, 2, i, i+1, xoptions=gtk.FILL)
 		self.args_input_file = os.path.realpath(self.args_input_file)
@@ -320,10 +325,23 @@ class Burner:
 			i += 1
 		self.output_file = gtk.Entry()
 		self.output_file.set_text(self.config.get('Global','output_file'))
+		hbox = gtk.HBox()
+		hbox.pack_start(self.output_file)
+		self.output_file_dialog = gtk.FileChooserDialog(title='Save Gcode to',action=gtk.FILE_CHOOSER_ACTION_SAVE,
+                                  buttons=(gtk.STOCK_CANCEL,gtk.RESPONSE_CANCEL,gtk.STOCK_SAVE,gtk.RESPONSE_OK))
+		self.output_file_dialog.set_default_response(gtk.RESPONSE_OK)
+		image = gtk.Image()
+		image.set_from_stock(gtk.STOCK_SAVE_AS,16)
+		self.save_to = gtk.Button(label=None)
+		self.save_to.set_image(image)		
+		hbox.pack_start(self.save_to, expand=False)
+		self.save_to.connect("clicked", self.save_to_click)
+		table.attach(hbox, 1, 3, i, i+1)
+
 
 		self.checkbuttons['save_to_file'].connect("toggled",self.show_filename)
 		table.attach(gtk.Label('File name'), 0, 1, i, i+1)
-		table.attach(self.output_file, 1, 2, i, i+1)
+
 		i += 1		
 	
 		button = gtk.Button("Generate Gcode")
