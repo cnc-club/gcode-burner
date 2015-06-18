@@ -68,14 +68,25 @@ class Burner:
 			message.run()
 			message.destroy()
 			return
-		self.w, self.h = self.pixbuf.get_width(), self.pixbuf.get_height()  
-		if self.w==0 or self.h==0 : 
+		self.img_w, self.img_h = self.pixbuf.get_width(), self.pixbuf.get_height()  
+		if self.img_w==0 or self.img_h==0 : 
 			print '(Wrong img)'
 			return
 		scale = float(self.config.get('Global','image-scale'))
-		if self.w>self.h : scaled_buf = self.pixbuf.scale_simple(int(scale),int(scale*self.h/self.w),gtk.gdk.INTERP_BILINEAR)
-		else :   scaled_buf = self.pixbuf.scale_simple(int(scale*self.w/self.h),int(scale),gtk.gdk.INTERP_BILINEAR)
+		if self.img_w>self.img_h : scaled_buf = self.pixbuf.scale_simple(int(scale),int(scale*self.img_h/self.img_w),gtk.gdk.INTERP_BILINEAR)
+		else :   scaled_buf = self.pixbuf.scale_simple(int(scale*self.img_w/self.img_h),int(scale),gtk.gdk.INTERP_BILINEAR)
 		self.image.set_from_pixbuf(scaled_buf)
+		self.set_hw()
+		
+	def set_hw(self):
+		try: 
+			self.w = self.spin_buttons["dots_x"].get_value()
+			self.h = self.spin_buttons["dots_y"].get_value()
+			if self.checkbuttons["aspect"].get_active(): 
+				self.h = self.w/self.img_w*self.img_h
+				self.spin_buttons["dots_y"].set_value(self.h)
+		except: 
+			pass		
 
 
 	def generate_gcode(self, arg):
@@ -91,12 +102,10 @@ class Burner:
 				message.run()
 				message.destroy()
 				return
-#		self.pixbuf = self.pixbuf.add_alpha(False,0,0,0)
-		pixels = self.pixbuf.get_pixels_array()
-#		print  self.pixbuf.get_pixels_array()
-#		rowstride = self.pixbuf.get_rowstride()
-#		l = len(pixels)
-#		ch = self.pixbuf.get_n_channels()
+		
+
+		self.scaled_pixbuf = self.pixbuf.scale_simple(int(self.w),int(self.h),gtk.gdk.INTERP_BILINEAR)
+		pixels = self.scaled_pixbuf.get_pixels_array()
 
 		zmin,zmax,ztr,x,y,x0,y0,feed = [self.spin_buttons[key].get_value() for key in 'z_min z_max z_traverse dot_width dot_height x_offset y_offset feed'.split()]
 		header = self.header.get_text(self.header.get_start_iter(),self.header.get_end_iter())
@@ -143,7 +152,8 @@ class Burner:
 				r = pixels[i][j][0]
 				g = pixels[i][j][1]
 				b = pixels[i][j][2]
-				v = float(r+g+b)/255/3
+				
+				v = float(int(r)+int(g)+int(b))/255/3
 				v_sum += 1.-v
 				if clean_v!=None and v_sum > clean_v : 
 					gcodel.append(clean+"\n")
@@ -193,6 +203,12 @@ class Burner:
 		self.config.write(f)			
 		f.close()
 		self.destroy(None,None)		
+	
+	def set_spinners(self):
+		self.spin_buttons["dots_x"].set_value(self.w)			
+		self.spin_buttons["dots_y"].set_value(self.h)		
+		self.spin_buttons['dot_width'].set_value(self.spin_buttons["width"].get_value()/self.w) 
+		self.spin_buttons['dot_height'].set_value(self.spin_buttons["height"].get_value()/self.h) 		
 
 	def change_spinners(self, widget, key):
 		if self.change_spinners_lock : return
@@ -200,11 +216,22 @@ class Burner:
 		if key == 'dot_width': 
 			self.spin_buttons['width'].set_value(self.w * self.spin_buttons[key].get_value()) 
 		if key == 'width': 
-			self.spin_buttons['dot_width'].set_value(self.spin_buttons[key].get_value()/self.w) 
+			self.set_spinners()
 		if key == 'dot_height': 
 			self.spin_buttons['height'].set_value(self.h * self.spin_buttons[key].get_value()) 
 		if key == 'height': 
-			self.spin_buttons['dot_height'].set_value(self.spin_buttons[key].get_value()/self.h) 
+			self.set_spinners()
+		if key == 'dots_x': 
+			self.w = self.spin_buttons[key].get_value()
+			if self.checkbuttons["aspect"].get_active(): 
+				self.h = self.w/self.img_w*self.img_h
+			self.set_spinners()	
+		if key == 'dots_y': 
+			self.h = self.spin_buttons[key].get_value()
+			if self.checkbuttons["aspect"].get_active(): 
+				self.w = self.h/self.img_h*self.img_w
+			self.set_spinners()
+			
 		if self.checkbuttons["aspect"].get_active():
 			if key in ['dot_width', 'width'] :
 				self.spin_buttons['height'	  ].set_value(self.spin_buttons['width'].get_value() * self.h / self.w)
@@ -237,6 +264,7 @@ class Burner:
 		self.config = ConfigParser.RawConfigParser()
 		self.config.read(self.ini_file)
 		spinners = dict(self.config.items('Spinners'))
+
 		field_names = dict(self.config.items('Field_names'))
 		spinners_order =  self.config.get('Global','spinners_order').split()
 		checkbuttons_order =  self.config.get('Global','checkbuttons_order').split()
@@ -303,6 +331,8 @@ class Burner:
 			adj.connect("value_changed", self.change_spinners, key)
 			i += 1
 
+		self.set_hw()
+
 		self.clean_each = gtk.Entry()
 		self.clean_each.set_text(self.config.get('Global','clean-each'))
 		table.attach(gtk.Label(self.config.get('Field_names','clean-each')), 0, 1, i, i+1)
@@ -331,7 +361,7 @@ class Burner:
                                   buttons=(gtk.STOCK_CANCEL,gtk.RESPONSE_CANCEL,gtk.STOCK_SAVE,gtk.RESPONSE_OK))
 		self.output_file_dialog.set_default_response(gtk.RESPONSE_OK)
 		image = gtk.Image()
-		image.set_from_stock(gtk.STOCK_SAVE_AS,16)
+		image.set_from_stock(gtk.STOCK_SAVE_AS,gtk.ICON_SIZE_BUTTON)
 		self.save_to = gtk.Button(label=None)
 		self.save_to.set_image(image)		
 		hbox.pack_start(self.save_to, expand=False)
@@ -388,7 +418,6 @@ class Burner:
 		frame.add(sw)
 		sw.add(textview)
 		table.attach(frame,2,3,15,21, xoptions=gtk.EXPAND | gtk.FILL , yoptions=gtk.EXPAND | gtk.FILL, xpadding=5, ypadding=5 )
-
 		
 		self.window.add(table)
 		self.window.show_all()		
