@@ -147,7 +147,9 @@ class Burner:
 				gcodel.append(clean+"\n")
 			if self.checkbuttons['echo_filter_progress'].get_active():
 				print "FILTER_PROGRESS=%d" % int(100*j/len(pixels[0]))
-			for i in range(len(pixels)):
+			for k in range(len(pixels)):
+				# make zig-zag
+				i = k if j%2==0 else len(pixels)-k-1
 				#xy = j*rowstride+i*ch
 				r = pixels[i][j][0]
 				g = pixels[i][j][1]
