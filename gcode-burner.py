@@ -22,7 +22,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 
 
-import getopt, sys, os, pygtk, gtk
+import getopt, sys, os, pygtk, gtk, re
 
 class Burner: 
 	def destroy(self, widget, data=None):
@@ -92,13 +92,26 @@ class Burner:
 	def generate_gcode(self, arg):
 	
 		output_file =  self.output_file.get_text() 
-
 		if self.checkbuttons['save_to_file'].get_active():
+			if self.checkbuttons['add_file_suffix'].get_active(): 
+				d = os.path.dirname(output_file)
+				l = os.listdir(d)
+				name = os.path.split(output_file)[-1]
+				name,ext = os.path.splitext(name)
+				max_n = 0
+				for s in l :
+					r = re.match(r"^%s_0*(\d+)%s$"%(re.escape(name),re.escape(ext) ), s)
+					if r :
+						max_n = max(max_n,int(r.group(1)))
+						
+				
+			output_file = d + "/" + name + "_%04d"%(max_n+1) + ext
+			
 			try :
 				f = open(output_file,'w')	
 			except:
 				message = gtk.MessageDialog(parent=None, flags=0, type=gtk.MESSAGE_INFO, buttons=gtk.BUTTONS_NONE, message_format=None)
-				message.set_markup('Can not write to specified file!')
+				message.set_markup('Can not write to specified file! (%s)'%output_file)
 				message.run()
 				message.destroy()
 				return
@@ -196,7 +209,7 @@ class Burner:
 			input_file = self.args_input_file
 
 		self.config.set('Global', 'input_file', input_file)	
-		self.config.set('Global', 'output_file', output_file)
+		self.config.set('Global', 'output_file', self.output_file.get_text())
 
 		self.config.set('Global', 'clean-each', self.clean_each.get_text())
 		self.config.set('Global', 'z_func', self.z_func.get_text())
